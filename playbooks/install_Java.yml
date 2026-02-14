@@ -1,0 +1,19 @@
+---
+- name: Instalar JDK de Java en CentOS
+  hosts: centos
+  become: true
+  user: sysadmin
+
+  tasks:
+
+    - name: Actualizar el repositorio EPEL
+      ansible.builtin.dnf:
+        name: epel-release
+        state: latest
+
+    - name: Instalo JDK de Java
+      ansible.builtin.dnf:
+        #name: java-21-openjdk-devel
+        name: " {{ java_version }}"
+        state: latest
+

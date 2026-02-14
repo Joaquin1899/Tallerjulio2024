@@ -1,0 +1,30 @@
+---
+- name: Habilitar el puerto 8080 en el firewall de Centos
+  hosts: centos
+  become: true
+  user: sysadmin
+
+  tasks:
+
+    - name: Comprobar que el firewall este levantado
+      ansible.builtin.service:
+        name: firewalld
+        state: started
+        enabled: yes
+
+    - name: Agregamos la regla de firewall de tomcat (puerto 8080)
+      ansible.posix.firewalld:
+        port: "8080/tcp"
+        permanent: true
+        immediate: true
+        state: enabled
+        zone: public
+      become: true
+
+        #  handlers:
+  
+        #    - name: Reload firewalld para aplicar cambios
+        #      ansible.builtin.firewalld:
+        #        state: reloaded
+        #      become: true
+       

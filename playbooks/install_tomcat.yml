@@ -1,0 +1,113 @@
+---
+- name: Instalar y configurar Tomcat en CentOS
+  hosts: centos
+  become: true
+  user: sysadmin
+
+  tasks:
+
+    - name: Instalar tar
+      ansible.builtin.dnf:
+        name: tar
+        state: present
+
+    - name: Descargo el paquete tomcat
+      ansible.builtin.uri: 
+        url: "{{ tomcat_url }}"
+        dest: /opt/
+      register: tomcat_file
+
+    - name: Descomprimo el archivo de tomcat
+      ansible.builtin.unarchive:
+        src: "{{ tomcat_file.path }}"
+        dest: /opt
+        remote_src: true
+
+    - name: Seteo variable con ruta donde está el tomcat
+      ansible.builtin.set_fact:
+        dir_tomcat: "{{ tomcat_file.path | splitext | first | splitext | first }}" 
+    - name: Creo enlace a tomcat
+      ansible.builtin.file:
+        src: "{{ dir_tomcat }}"
+        dest: /opt/tomcat
+        state: link
+        force: true
+      
+    - name: Crear usuario y grupo para Tomcat
+      ansible.builtin.group:
+        name: tomcat
+        state: present
+
+    - name: Crear usuario y grupo para Tomcat
+      ansible.builtin.user:
+        name: tomcat
+        group: tomcat
+        create_home: no
+        shell: /sbin/nologin
+          
+    - name: Establecer permisos en el directorio de Tomcat
+      ansible.builtin.file:
+        path: /opt/tomcat
+        state: directory
+        recurse: true
+        owner: tomcat
+        group: tomcat
+        mode: '0755'
+
+    - name: Configurar Tomcat como servicio
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/tomcat.service
+        content: |
+          Description=Apache Tomcat Web Application Container
+          After=network.target
+
+          [Service]
+          Type=forking
+          User=tomcat
+          Group=tomcat
+          Environment="JAVA_OPTS=-Djava.awt.headless=true -Xms512M -Xmx1024M"
+          Environment="CATALINA_PID=/opt/tomcat/temp/tomcat.pid"
+          Environment="CATALINA_HOME=/opt/tomcat"
+          Environment="CATALINA_BASE=/opt/tomcat"
+          ExecStart=/opt/tomcat/bin/startup.sh
+          ExecStop=/opt/tomcat/bin/shutdown.sh
+          Restart=on-failure
+          
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Desplegar la aplcación todo.war
+      ansible.builtin.copy:
+        src: /home/sysadmin/ObligatorioJulio2024/files/todo.war
+        dest: /opt/tomcat/webapps/todo.war
+
+## Configurar los acceso a la base de datos en el archvivo /opt/config/app.properties
+    - name: Crear directorio /opt/config
+      file:
+        path: /opt/config
+        state: directory
+        mode: '0755'
+
+
+    - name: Asegurarse de que el archivo app.properties existe
+      ansible.builtin.file:
+        path: /opt/config/app.properties
+        state: touch
+
+    - name: Configurar el acceso a la base de datos en app.properties
+      ansible.builtin.copy:
+        dest: /opt/config/app.properties
+        content: |
+          tipoDB=mysql
+          jdbcURL=jdbc:mysql://192.168.56.20:3306/todo
+          jdbcUsername=prueba
+          jdbcPassword=prueba2024
+
+    - name: Iniciar y habilitar Tomcat
+      ansible.builtin.systemd:
+        name: tomcat
+        state: started
+        enabled: true
+
+
+  
